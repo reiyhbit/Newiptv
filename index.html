@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>IPTV (Shaka) - Simple</title>
+
+  <!-- Shaka Player -->
+  <script src="https://cdn.jsdelivr.net/npm/shaka-player@5.0.3/dist/shaka-player.compiled.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#0b0f17; --text:#e8eefc; --muted:#a9b6d3; --line:rgba(255,255,255,.10);
+      --card:rgba(255,255,255,.03); --shadow:0 10px 30px rgba(0,0,0,.35);
+      --radius:16px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .wrap{
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 12px;
+      display: grid;
+      gap: 12px;
+    }
+
+    /* Player on top */
+    .playerCard{
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      overflow:hidden;
+      box-shadow: var(--shadow);
+      background:#000;
+    }
+    video{
+      width:100%;
+      height:auto;
+      max-height: 56vh;
+      display:block;
+      background:#000;
+    }
+
+    /* Minimal status row */
+    .statusRow{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+      padding:10px 12px;
+      background: rgba(10,14,22,0.85);
+      border-top:1px solid var(--line);
+    }
+    .now{
+      min-width: 220px;
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+      overflow:hidden;
+    }
+    .now b{font-size:14px}
+    .now span{
+      color: var(--muted);
+      font-size:12px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      max-width: 76vw;
+    }
+    .btns{display:flex; gap:10px}
+    button{
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.05);
+      color: var(--text);
+      padding:10px 12px;
+      border-radius: 12px;
+      font-weight: 650;
+      cursor:pointer;
+      touch-action: manipulation;
+    }
+    button:active{transform: translateY(1px);}
+
+    /* Channel grid: 2 columns */
+    .gridCard{
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--card);
+      box-shadow: var(--shadow);
+      padding: 12px;
+    }
+    .topBar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom: 10px;
+    }
+    .topBar .meta{
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.2;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .tile{
+      border:1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(0,0,0,.20);
+      padding: 10px;
+      min-height: 64px;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      cursor:pointer;
+    }
+    .tile:active{transform: translateY(1px);}
+    .tile .name{
+      font-weight: 800;
+      font-size: 13px;
+      line-height: 1.15;
+    }
+    .tile .sub{
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--muted);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .tile.active{
+      outline: 2px solid rgba(70,120,255,.55);
+      background: rgba(70,120,255,.10);
+    }
+
+    @media (min-width: 860px){
+      video{max-height: 62vh;}
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="playerCard">
+      <video id="video" controls playsinline></video>
+      <div class="statusRow">
+        <div class="now">
+          <b id="nowTitle">Not playing</b>
+          <span id="nowUrl">Playlist: loading…</span>
+        </div>
+        <div class="btns">
+          <button id="btnReload">Reload playlist</button>
+          <button id="btnStop">Stop</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="gridCard">
+      <div class="topBar">
+        <div>
+          <div style="font-weight:800">Channels</div>
+          <div class="meta" id="metaText">Fetching M3U…</div>
+        </div>
+        <div class="meta" id="supportText">Checking support…</div>
+      </div>
+
+      <div class="grid" id="grid"></div>
+    </div>
+  </div>
+
+  <script>
+    const PLAYLIST_URL = "https://raw.githubusercontent.com/reiyhbit/iptv/refs/heads/main/playlist.m3u";
+
+    const video = document.getElementById("video");
+    const grid = document.getElementById("grid");
+    const nowTitle = document.getElementById("nowTitle");
+    const nowUrl = document.getElementById("nowUrl");
+    const metaText = document.getElementById("metaText");
+    const supportText = document.getElementById("supportText");
+
+    const btnReload = document.getElementById("btnReload");
+    const btnStop = document.getElementById("btnStop");
+
+    let player = null;
+    let channels = [];
+    let currentIndex = -1;
+
+    function inferType(url){
+      const u = (url || "").toLowerCase();
+      if (u.includes(".mpd")) return "DASH";
+      if (u.includes(".m3u8")) return "HLS";
+      return "STREAM";
+    }
+
+    function setNow(ch){
+      if(!ch){
+        nowTitle.textContent = "Not playing";
+        nowUrl.textContent = `Playlist: ${PLAYLIST_URL}`;
+        return;
+      }
+      nowTitle.textContent = ch.name || "Playing";
+      nowUrl.textContent = `${inferType(ch.url)} • ${ch.url}`;
+    }
+
+    function render(){
+      grid.innerHTML = "";
+      if(!channels.length){
+        grid.innerHTML = `<div style="grid-column:1 / -1; color:#a9b6d3; font-size:12px;">
+          No channels found in playlist (or playlist blocked by CORS).
+        </div>`;
+        return;
+      }
+
+      channels.forEach((ch, idx) => {
+        const tile = document.createElement("div");
+        tile.className = "tile" + (idx === currentIndex ? " active" : "");
+        tile.innerHTML = `
+          <div class="name">${escapeHtml(ch.name || `Channel ${idx+1}`)}</div>
+          <div class="sub">${escapeHtml(inferType(ch.url))}</div>
+        `;
+        tile.addEventListener("click", () => playIndex(idx));
+        grid.appendChild(tile);
+      });
+    }
+
+    function escapeHtml(s){
+      return (s ?? "").replace(/[&<>"']/g, c => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+      }[c]));
+    }
+
+    function parseM3U(text){
+      // Basic parsing: EXTINF name + next URL line
+      const lines = (text || "")
+        .split(/\r?\n/)
+        .map(l => l.trim())
+        .filter(l => l.length);
+
+      const out = [];
+      let pendingName = null;
+
+      for(const line of lines){
+        if(line.startsWith("#EXTINF")){
+          const commaIdx = line.lastIndexOf(",");
+          pendingName = commaIdx >= 0 ? line.slice(commaIdx + 1).trim() : "Channel";
+        } else if(line.startsWith("#")){
+          // ignore tags/comments (including any DRM/ClearKey tags)
+          continue;
+        } else {
+          out.push({ name: pendingName || `Channel ${out.length + 1}`, url: line });
+          pendingName = null;
+        }
+      }
+      return out;
+    }
+
+    function onShakaError(event){
+      const err = event.detail;
+      console.error("Shaka error:", err);
+      // If a channel requires DRM/ClearKey, it may fail here; we don't configure DRM.
+      metaText.textContent = "Playback error (often CORS/format/DRM). See console.";
+    }
+
+    async function initShaka(){
+      shaka.polyfill.installAll();
+
+      if(!shaka.Player.isBrowserSupported()){
+        supportText.textContent = "Shaka not supported ❌";
+        metaText.textContent = "This browser lacks required APIs (MSE/EME).";
+        return false;
+      }
+
+      supportText.textContent = "Shaka supported ✅";
+      player = new shaka.Player();
+      await player.attach(video);
+      player.addEventListener("error", onShakaError);
+
+      // Basic, safe config (no DRM configuration).
+      player.configure({
+        streaming: { rebufferingGoal: 2, bufferingGoal: 10 }
+      });
+
+      return true;
+    }
+
+    async function loadPlaylist(){
+      metaText.textContent = "Fetching M3U…";
+      try{
+        const res = await fetch(PLAYLIST_URL, { cache: "no-store" });
+        if(!res.ok) throw new Error(`HTTP ${res.status}`);
+        const text = await res.text();
+        channels = parseM3U(text);
+        currentIndex = -1;
+        render();
+        metaText.textContent = `Loaded ${channels.length} channel(s). Tap one to play.`;
+        setNow(null);
+      } catch(e){
+        console.error(e);
+        metaText.textContent = "Failed to load playlist (CORS/network).";
+        channels = [];
+        currentIndex = -1;
+        render();
+        setNow(null);
+      }
+    }
+
+    async function playIndex(idx){
+      if(!player) return;
+      if(idx < 0 || idx >= channels.length) return;
+
+      currentIndex = idx;
+      render();
+
+      const ch = channels[idx];
+      setNow(ch);
+      metaText.textContent = "Loading channel…";
+
+      try{
+        await player.load(ch.url);
+        try { await video.play(); } catch {}
+        metaText.textContent = "Playing.";
+      } catch(e){
+        console.error(e);
+        metaText.textContent = "Failed to play (CORS/format/DRM).";
+      }
+    }
+
+    function stop(){
+      try { video.pause(); } catch {}
+      setNow(null);
+      currentIndex = -1;
+      render();
+      metaText.textContent = "Stopped.";
+    }
+
+    btnReload.addEventListener("click", loadPlaylist);
+    btnStop.addEventListener("click", async () => {
+      if(player) { try { await player.unload(); } catch {} }
+      stop();
+    });
+
+    (async () => {
+      const ok = await initShaka();
+      if(ok) await loadPlaylist();
+      else setNow(null);
+    })();
+  </script>
+</body>
+</html>
