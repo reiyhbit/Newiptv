@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>IPTV (Shaka) - Simple</title>
 
-  <!-- Shaka Player -->
   <script src="https://cdn.jsdelivr.net/npm/shaka-player@5.0.3/dist/shaka-player.compiled.min.js"></script>
 
   <style>
@@ -15,135 +14,41 @@
       --radius:16px;
     }
     *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-      background: var(--bg);
-      color: var(--text);
-    }
-    .wrap{
-      max-width: 980px;
-      margin: 0 auto;
-      padding: 12px;
-      display: grid;
-      gap: 12px;
-    }
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);}
+    .wrap{max-width:980px;margin:0 auto;padding:12px;display:grid;gap:12px;}
 
-    /* Player on top */
-    .playerCard{
-      border:1px solid var(--line);
-      border-radius: var(--radius);
-      overflow:hidden;
-      box-shadow: var(--shadow);
-      background:#000;
-    }
-    video{
-      width:100%;
-      height:auto;
-      max-height: 56vh;
-      display:block;
-      background:#000;
-    }
+    .playerCard{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);background:#000;}
+    video{width:100%;height:auto;max-height:56vh;display:block;background:#000;}
 
-    /* Minimal status row */
-    .statusRow{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-      justify-content:space-between;
-      padding:10px 12px;
-      background: rgba(10,14,22,0.85);
-      border-top:1px solid var(--line);
-    }
-    .now{
-      min-width: 220px;
-      display:flex;
-      flex-direction:column;
-      gap:2px;
-      overflow:hidden;
-    }
+    .statusRow{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;padding:10px 12px;
+      background:rgba(10,14,22,.85);border-top:1px solid var(--line);}
+    .now{min-width:220px;display:flex;flex-direction:column;gap:2px;overflow:hidden;}
     .now b{font-size:14px}
-    .now span{
-      color: var(--muted);
-      font-size:12px;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-      max-width: 76vw;
-    }
-    .btns{display:flex; gap:10px}
-    button{
-      border:1px solid var(--line);
-      background: rgba(255,255,255,.05);
-      color: var(--text);
-      padding:10px 12px;
-      border-radius: 12px;
-      font-weight: 650;
-      cursor:pointer;
-      touch-action: manipulation;
-    }
-    button:active{transform: translateY(1px);}
+    .now span{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:76vw;}
+    .btns{display:flex;gap:10px}
+    button{border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--text);padding:10px 12px;border-radius:12px;
+      font-weight:650;cursor:pointer;touch-action:manipulation;}
+    button:active{transform:translateY(1px);}
 
-    /* Channel grid: 2 columns */
-    .gridCard{
-      border:1px solid var(--line);
-      border-radius: var(--radius);
-      background: var(--card);
-      box-shadow: var(--shadow);
-      padding: 12px;
-    }
-    .topBar{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      margin-bottom: 10px;
-    }
-    .topBar .meta{
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.2;
-    }
+    .gridCard{border:1px solid var(--line);border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow);padding:12px;}
+    .topBar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}
+    .topBar .meta{color:var(--muted);font-size:12px;line-height:1.2;}
 
-    .grid{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-    .tile{
-      border:1px solid var(--line);
-      border-radius: 14px;
-      background: rgba(0,0,0,.20);
-      padding: 10px;
-      min-height: 64px;
-      display:flex;
-      flex-direction:column;
-      justify-content:center;
-      cursor:pointer;
-    }
-    .tile:active{transform: translateY(1px);}
-    .tile .name{
-      font-weight: 800;
-      font-size: 13px;
-      line-height: 1.15;
-    }
-    .tile .sub{
-      margin-top: 4px;
-      font-size: 11px;
-      color: var(--muted);
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-    .tile.active{
-      outline: 2px solid rgba(70,120,255,.55);
-      background: rgba(70,120,255,.10);
-    }
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    .tile{border:1px solid var(--line);border-radius:14px;background:rgba(0,0,0,.20);padding:10px;min-height:72px;
+      display:flex;gap:10px;align-items:center;cursor:pointer;}
+    .tile:active{transform:translateY(1px);}
+    .tile.active{outline:2px solid rgba(70,120,255,.55);background:rgba(70,120,255,.10);}
 
-    @media (min-width: 860px){
-      video{max-height: 62vh;}
+    .logo{
+      width:44px;height:44px;border-radius:10px;flex:0 0 44px;
+      object-fit:cover;background:rgba(255,255,255,.06);border:1px solid var(--line);
     }
+    .info{min-width:0;display:flex;flex-direction:column;gap:3px;}
+    .name{font-weight:800;font-size:13px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .sub{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+    @media (min-width:860px){video{max-height:62vh;}}
   </style>
 </head>
 
@@ -210,6 +115,67 @@
       nowUrl.textContent = `${inferType(ch.url)} • ${ch.url}`;
     }
 
+    function escapeHtml(s){
+      return (s ?? "").replace(/[&<>"']/g, c => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+      }[c]));
+    }
+
+    // Extract key="value" attributes from the EXTINF part
+    function parseAttributes(extinfLine){
+      // Example: #EXTINF:-1 tvg-id="..." tvg-logo="..." group-title="Sports",Channel Name
+      const attrs = {};
+      const attrPart = extinfLine.replace(/^#EXTINF:[^ ]*\s?/, ""); // remove "#EXTINF:-1 "
+      // Find key="value" pairs
+      const re = /([a-zA-Z0-9_-]+)\s*=\s*"([^"]*)"/g;
+      let m;
+      while ((m = re.exec(attrPart)) !== null) {
+        attrs[m[1].toLowerCase()] = m[2];
+      }
+      return attrs;
+    }
+
+    function parseM3U(text){
+      const lines = (text || "")
+        .split(/\r?\n/)
+        .map(l => l.trim())
+        .filter(l => l.length);
+
+      const out = [];
+      let pending = null; // {name, logo, group, ...}
+
+      for(const line of lines){
+        if(line.startsWith("#EXTINF")){
+          const commaIdx = line.lastIndexOf(",");
+          const name = commaIdx >= 0 ? line.slice(commaIdx + 1).trim() : "Channel";
+          const attrs = parseAttributes(line);
+
+          pending = {
+            name,
+            logo: attrs["tvg-logo"] || "",
+            group: attrs["group-title"] || "",
+            id: attrs["tvg-id"] || ""
+          };
+        } else if(line.startsWith("#")){
+          // Ignore other tags (including any DRM/ClearKey tags)
+          continue;
+        } else {
+          // URL line
+          const info = pending || { name: `Channel ${out.length + 1}`, logo: "", group: "", id: "" };
+          out.push({
+            name: info.name,
+            url: line,
+            logo: info.logo,
+            group: info.group,
+            id: info.id,
+            type: inferType(line)
+          });
+          pending = null;
+        }
+      }
+      return out;
+    }
+
     function render(){
       grid.innerHTML = "";
       if(!channels.length){
@@ -222,50 +188,35 @@
       channels.forEach((ch, idx) => {
         const tile = document.createElement("div");
         tile.className = "tile" + (idx === currentIndex ? " active" : "");
-        tile.innerHTML = `
-          <div class="name">${escapeHtml(ch.name || `Channel ${idx+1}`)}</div>
-          <div class="sub">${escapeHtml(inferType(ch.url))}</div>
-        `;
         tile.addEventListener("click", () => playIndex(idx));
+
+        const img = document.createElement("img");
+        img.className = "logo";
+        img.alt = ch.name || "logo";
+        if (ch.logo) img.src = ch.logo;
+
+        // Fallback if logo fails to load
+        img.onerror = () => {
+          img.removeAttribute("src");
+          img.style.display = "none";
+        };
+
+        const info = document.createElement("div");
+        info.className = "info";
+        info.innerHTML = `
+          <div class="name">${escapeHtml(ch.name || `Channel ${idx+1}`)}</div>
+          <div class="sub">${escapeHtml(ch.group ? ch.group + " • " : "")}${escapeHtml(ch.type || inferType(ch.url))}</div>
+        `;
+
+        tile.appendChild(img);
+        tile.appendChild(info);
         grid.appendChild(tile);
       });
-    }
-
-    function escapeHtml(s){
-      return (s ?? "").replace(/[&<>"']/g, c => ({
-        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
-      }[c]));
-    }
-
-    function parseM3U(text){
-      // Basic parsing: EXTINF name + next URL line
-      const lines = (text || "")
-        .split(/\r?\n/)
-        .map(l => l.trim())
-        .filter(l => l.length);
-
-      const out = [];
-      let pendingName = null;
-
-      for(const line of lines){
-        if(line.startsWith("#EXTINF")){
-          const commaIdx = line.lastIndexOf(",");
-          pendingName = commaIdx >= 0 ? line.slice(commaIdx + 1).trim() : "Channel";
-        } else if(line.startsWith("#")){
-          // ignore tags/comments (including any DRM/ClearKey tags)
-          continue;
-        } else {
-          out.push({ name: pendingName || `Channel ${out.length + 1}`, url: line });
-          pendingName = null;
-        }
-      }
-      return out;
     }
 
     function onShakaError(event){
       const err = event.detail;
       console.error("Shaka error:", err);
-      // If a channel requires DRM/ClearKey, it may fail here; we don't configure DRM.
       metaText.textContent = "Playback error (often CORS/format/DRM). See console.";
     }
 
@@ -283,7 +234,6 @@
       await player.attach(video);
       player.addEventListener("error", onShakaError);
 
-      // Basic, safe config (no DRM configuration).
       player.configure({
         streaming: { rebufferingGoal: 2, bufferingGoal: 10 }
       });
@@ -297,9 +247,11 @@
         const res = await fetch(PLAYLIST_URL, { cache: "no-store" });
         if(!res.ok) throw new Error(`HTTP ${res.status}`);
         const text = await res.text();
+
         channels = parseM3U(text);
         currentIndex = -1;
         render();
+
         metaText.textContent = `Loaded ${channels.length} channel(s). Tap one to play.`;
         setNow(null);
       } catch(e){
