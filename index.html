@@ -20,14 +20,18 @@
     .playerCard{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);background:#000;}
     video{width:100%;height:auto;max-height:56vh;display:block;background:#000;}
 
-    .statusRow{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;padding:10px 12px;
-      background:rgba(10,14,22,.85);border-top:1px solid var(--line);}
+    .statusRow{
+      display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;
+      padding:10px 12px;background:rgba(10,14,22,.85);border-top:1px solid var(--line);
+    }
     .now{min-width:220px;display:flex;flex-direction:column;gap:2px;overflow:hidden;}
     .now b{font-size:14px}
     .now span{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:76vw;}
     .btns{display:flex;gap:10px}
-    button{border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--text);padding:10px 12px;border-radius:12px;
-      font-weight:650;cursor:pointer;touch-action:manipulation;}
+    button{
+      border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--text);
+      padding:10px 12px;border-radius:12px;font-weight:650;cursor:pointer;touch-action:manipulation;
+    }
     button:active{transform:translateY(1px);}
 
     .gridCard{border:1px solid var(--line);border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow);padding:12px;}
@@ -35,8 +39,10 @@
     .topBar .meta{color:var(--muted);font-size:12px;line-height:1.2;}
 
     .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-    .tile{border:1px solid var(--line);border-radius:14px;background:rgba(0,0,0,.20);padding:10px;min-height:72px;
-      display:flex;gap:10px;align-items:center;cursor:pointer;}
+    .tile{
+      border:1px solid var(--line);border-radius:14px;background:rgba(0,0,0,.20);
+      padding:10px;min-height:72px;display:flex;gap:10px;align-items:center;cursor:pointer;
+    }
     .tile:active{transform:translateY(1px);}
     .tile.active{outline:2px solid rgba(70,120,255,.55);background:rgba(70,120,255,.10);}
 
@@ -59,7 +65,8 @@
       <div class="statusRow">
         <div class="now">
           <b id="nowTitle">Not playing</b>
-          <span id="nowUrl">Playlist: loading…</span>
+          <!-- URL hidden; show only status text -->
+          <span id="nowStatus">Tap a channel to play</span>
         </div>
         <div class="btns">
           <button id="btnReload">Reload playlist</button>
@@ -87,7 +94,7 @@
     const video = document.getElementById("video");
     const grid = document.getElementById("grid");
     const nowTitle = document.getElementById("nowTitle");
-    const nowUrl = document.getElementById("nowUrl");
+    const nowStatus = document.getElementById("nowStatus");
     const metaText = document.getElementById("metaText");
     const supportText = document.getElementById("supportText");
 
@@ -98,35 +105,15 @@
     let channels = [];
     let currentIndex = -1;
 
-    function inferType(url){
-      const u = (url || "").toLowerCase();
-      if (u.includes(".mpd")) return "DASH";
-      if (u.includes(".m3u8")) return "HLS";
-      return "STREAM";
-    }
-
-    function setNow(ch){
-      if(!ch){
-        nowTitle.textContent = "Not playing";
-        nowUrl.textContent = `Playlist: ${PLAYLIST_URL}`;
-        return;
-      }
-      nowTitle.textContent = ch.name || "Playing";
-      nowUrl.textContent = `${inferType(ch.url)} • ${ch.url}`;
-    }
-
     function escapeHtml(s){
       return (s ?? "").replace(/[&<>"']/g, c => ({
         "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
       }[c]));
     }
 
-    // Extract key="value" attributes from the EXTINF part
     function parseAttributes(extinfLine){
-      // Example: #EXTINF:-1 tvg-id="..." tvg-logo="..." group-title="Sports",Channel Name
       const attrs = {};
-      const attrPart = extinfLine.replace(/^#EXTINF:[^ ]*\s?/, ""); // remove "#EXTINF:-1 "
-      // Find key="value" pairs
+      const attrPart = extinfLine.replace(/^#EXTINF:[^ ]*\s?/, "");
       const re = /([a-zA-Z0-9_-]+)\s*=\s*"([^"]*)"/g;
       let m;
       while ((m = re.exec(attrPart)) !== null) {
@@ -142,7 +129,7 @@
         .filter(l => l.length);
 
       const out = [];
-      let pending = null; // {name, logo, group, ...}
+      let pending = null;
 
       for(const line of lines){
         if(line.startsWith("#EXTINF")){
@@ -153,22 +140,18 @@
           pending = {
             name,
             logo: attrs["tvg-logo"] || "",
-            group: attrs["group-title"] || "",
-            id: attrs["tvg-id"] || ""
+            group: attrs["group-title"] || ""
           };
         } else if(line.startsWith("#")){
-          // Ignore other tags (including any DRM/ClearKey tags)
+          // ignore other tags/comments (including DRM/ClearKey tags)
           continue;
         } else {
-          // URL line
-          const info = pending || { name: `Channel ${out.length + 1}`, logo: "", group: "", id: "" };
+          const info = pending || { name: `Channel ${out.length + 1}`, logo: "", group: "" };
           out.push({
             name: info.name,
             url: line,
             logo: info.logo,
-            group: info.group,
-            id: info.id,
-            type: inferType(line)
+            group: info.group
           });
           pending = null;
         }
@@ -176,11 +159,22 @@
       return out;
     }
 
+    function setNow(ch){
+      if(!ch){
+        nowTitle.textContent = "Not playing";
+        nowStatus.textContent = "Tap a channel to play";
+        return;
+      }
+      nowTitle.textContent = ch.name || "Playing";
+      // URL hidden: show only group + generic state
+      nowStatus.textContent = ch.group ? ch.group : "Playing…";
+    }
+
     function render(){
       grid.innerHTML = "";
       if(!channels.length){
         grid.innerHTML = `<div style="grid-column:1 / -1; color:#a9b6d3; font-size:12px;">
-          No channels found in playlist (or playlist blocked by CORS).
+          No channels found (or playlist blocked by CORS).
         </div>`;
         return;
       }
@@ -194,8 +188,6 @@
         img.className = "logo";
         img.alt = ch.name || "logo";
         if (ch.logo) img.src = ch.logo;
-
-        // Fallback if logo fails to load
         img.onerror = () => {
           img.removeAttribute("src");
           img.style.display = "none";
@@ -205,7 +197,7 @@
         info.className = "info";
         info.innerHTML = `
           <div class="name">${escapeHtml(ch.name || `Channel ${idx+1}`)}</div>
-          <div class="sub">${escapeHtml(ch.group ? ch.group + " • " : "")}${escapeHtml(ch.type || inferType(ch.url))}</div>
+          <div class="sub">${escapeHtml(ch.group || "")}</div>
         `;
 
         tile.appendChild(img);
@@ -215,8 +207,7 @@
     }
 
     function onShakaError(event){
-      const err = event.detail;
-      console.error("Shaka error:", err);
+      console.error("Shaka error:", event.detail);
       metaText.textContent = "Playback error (often CORS/format/DRM). See console.";
     }
 
@@ -234,9 +225,8 @@
       await player.attach(video);
       player.addEventListener("error", onShakaError);
 
-      player.configure({
-        streaming: { rebufferingGoal: 2, bufferingGoal: 10 }
-      });
+      // No DRM configuration here.
+      player.configure({ streaming: { rebufferingGoal: 2, bufferingGoal: 10 } });
 
       return true;
     }
@@ -252,7 +242,7 @@
         currentIndex = -1;
         render();
 
-        metaText.textContent = `Loaded ${channels.length} channel(s). Tap one to play.`;
+        metaText.textContent = `Loaded ${channels.length} channel(s).`;
         setNow(null);
       } catch(e){
         console.error(e);
@@ -273,7 +263,7 @@
 
       const ch = channels[idx];
       setNow(ch);
-      metaText.textContent = "Loading channel…";
+      metaText.textContent = "Loading…";
 
       try{
         await player.load(ch.url);
