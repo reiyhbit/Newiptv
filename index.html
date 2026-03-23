@@ -616,28 +616,38 @@
       }
     }
 
-    /* MOBILE COMPACT MODE */
+    /* ✅ MOBILE COMPACT MODE (para di agaw-space, mas kita channels sa baba) */
     @media (max-width: 480px){
+
+      /* video liit konti */
       #video-container{
-        height: 32vh;
+        height: 32vh;          /* from 40vh */
         border-radius: 16px;
       }
+
       #app-container{
         padding: 10px;
         gap: 10px;
       }
+
+      /* channel info siksik */
       #channel-info{
         padding: 8px 10px;
         gap: 8px;
       }
       #current-channel{ font-size: 14px; }
       #channel-status{ font-size: 11px; }
+
       .favorite-btn{
         width: 36px;
         height: 36px;
         border-radius: 12px;
       }
+
+      /* OPTIONAL: recent bar OFF sa mobile para mas maluwag (pwede mo i-on ulit kung gusto) */
       #recent-channels{ display:none !important; }
+
+      /* tabs liit */
       #category-tabs{
         padding: 8px 10px;
         gap: 6px;
@@ -646,6 +656,8 @@
         padding: 6px 10px;
         font-size: 11px;
       }
+
+      /* prev/next liit */
       #nav-buttons{
         padding: 10px;
         gap: 8px;
@@ -655,6 +667,8 @@
         font-size: 12px;
         border-radius: 12px;
       }
+
+      /* quick grid siksik para mas maraming makita */
       #quick-channels{
         padding: 8px 10px 10px;
         gap: 8px;
@@ -672,6 +686,8 @@
       .channel-name{
         font-size: 11px;
       }
+
+      /* bottom buttons liit */
       .bottom-actions{
         padding: 10px;
         gap: 8px;
@@ -807,59 +823,68 @@
     </div>
   </div>
 
-  <!-- hls.js - Primary player -->
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-  <!-- Shaka Player as fallback -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.11.2/shaka-player.compiled.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.compiled.js"></script>
   <script src="https://dbghelp.github.io/M3U8Interpreter.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.0.4/pako.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
   <script>
-    // Enhanced Mobile IPTV App with hls.js primary + Shaka fallback
+    // Enhanced Mobile IPTV App with COMPLETE CHANNELS
     class EnhancedMobileIPTV {
       constructor() {
         this.channels = [];
         this.currentChannelIndex = 0;
-        this.playerType = null; // 'hlsjs' or 'shaka'
-        this.hls = null;
-        this.shakaPlayer = null;
+        this.player = null;
         this.xmlepg = null;
         this.isFullscreen = false;
         this.favorites = JSON.parse(localStorage.getItem('iptv_favorites') || '[]');
         this.recentChannels = JSON.parse(localStorage.getItem('iptv_recent') || '[]');
         this.categories = {};
         this.currentCategory = 'all';
-        this.useHlsJs = true; // Try hls.js first
 
         this.initializeApp();
       }
 
       initializeApp() {
-        // Initialize video element
-        this.video = document.getElementById('video');
-        
-        // Initialize Shaka as backup
-        this.initializeShakaPlayer();
-        
-        // Setup event listeners
-        this.setupEventListeners();
+        // Initialize Shaka Player
+        this.initializePlayer();
 
         // Load default playlist
         this.loadDefaultPlaylist();
+
+        // Setup event listeners
+        this.setupEventListeners();
+
+        // Update UI with stored data
+        this.updateFavoritesUI();
+        this.updateRecentChannelsUI();
       }
 
-      initializeShakaPlayer() {
-        // Initialize Shaka but don't use it yet (will be fallback)
-        this.shakaPlayer = new shaka.Player(this.video);
+      initializePlayer() {
+        this.player = new shaka.Player(document.getElementById('video'));
         shaka.polyfill.installAll();
-        
-        this.shakaPlayer.addEventListener('error', (error) => {
-          console.warn('Shaka player error:', error);
-          // If Shaka fails and we're using it, try to recover
-          if (this.playerType === 'shaka') {
-            this.updateChannelStatus('Shaka error, retrying...');
-          }
+
+        // Handle player events
+        this.player.addEventListener('loading', () => {
+          document.getElementById('loading').style.display = 'block';
+          this.updateChannelStatus('Loading...');
+        });
+
+        this.player.addEventListener('loaded', () => {
+          document.getElementById('loading').style.display = 'none';
+          this.updateChannelStatus('Playing');
+
+          // AUTO-PLAY when channel is loaded
+          document.getElementById('video').play().catch(e => {
+            console.log('Auto-play prevented by browser:', e);
+            this.showToast('Tap the video to play');
+          });
+        });
+
+        this.player.addEventListener('error', (error) => {
+          document.getElementById('loading').style.display = 'none';
+          this.updateChannelStatus('Error loading channel');
+          console.error('Player error:', error);
         });
       }
 
@@ -870,7 +895,7 @@
 
       async loadPlaylistFromUrl(url) {
         try {
-          this.showLoading(true);
+          document.getElementById('loading').style.display = 'block';
           this.updateChannelStatus('Loading playlist...');
 
           const response = await fetch(url);
@@ -884,7 +909,7 @@
           console.error('Error loading playlist:', error);
           this.showToast('Error loading playlist');
         } finally {
-          this.showLoading(false);
+          document.getElementById('loading').style.display = 'none';
         }
       }
 
@@ -929,16 +954,8 @@
 
       updateCategoryTabs() {
         const tabsContainer = document.getElementById('category-tabs');
-        const existingTabs = tabsContainer.querySelectorAll('.category-tab');
-        
-        // Keep the default All and Favorites tabs
-        existingTabs.forEach(tab => {
-          if (tab.dataset.category !== 'all' && tab.dataset.category !== 'favorites') {
-            tab.remove();
-          }
-        });
-        
-        // Add other categories
+
+        // Keep All and Favorites, add other categories
         Object.keys(this.categories).forEach(category => {
           if (category !== 'all' && category !== 'favorites') {
             const tab = document.createElement('button');
@@ -1034,244 +1051,127 @@
 
           quickChannels.appendChild(quickChannel);
         });
+
+        // Show channel count
+        if (this.currentCategory === 'all') {
+          this.showToast(`Loaded ${this.channels.length} channels`);
+        }
       }
 
-      // Main play function with hls.js first, Shaka as fallback
       playChannel(index) {
         if (index < 0 || index >= this.channels.length) return;
 
         this.currentChannelIndex = index;
         const channel = this.channels[index];
-        
-        // Clean up existing players
-        this.destroyCurrentPlayer();
-        
+
         // Add to recent channels
         this.addToRecent(index);
-        
-        // Try hls.js first
-        this.tryPlayWithHlsJs(channel);
-      }
 
-      destroyCurrentPlayer() {
-        // Destroy hls.js instance
-        if (this.hls) {
-          this.hls.destroy();
-          this.hls = null;
-        }
-        
-        // Unload shaka
-        if (this.shakaPlayer) {
-          try {
-            this.shakaPlayer.unload();
-          } catch(e) {}
-        }
-        
-        // Clear video source
-        this.video.removeAttribute('src');
-        this.video.load();
-      }
-
-      tryPlayWithHlsJs(channel) {
-        this.playerType = 'hlsjs';
-        this.updateChannelStatus('Loading with hls.js...');
-        this.showLoading(true);
-        
-        const streamUrl = channel.manifestUrl;
-        
-        // Check if hls.js is supported
-        if (Hls.isSupported()) {
-          this.hls = new Hls({
-            enableWorker: true,
-            lowLatencyMode: true,
-            backBufferLength: 90,
-            maxBufferLength: 30,
-            maxMaxBufferLength: 60,
-            liveSyncDurationCount: 3,
-            liveMaxLatencyDurationCount: 6,
-            startLevel: -1,
-            debug: false
-          });
-          
-          this.hls.loadSource(streamUrl);
-          this.hls.attachMedia(this.video);
-          
-          // Success events
-          this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            this.showLoading(false);
-            this.updateChannelStatus('Playing (hls.js)');
-            this.updateChannelInfo(channel.channelName);
-            this.updateFavoriteButton();
-            this.updateChannelList();
-            this.updateQuickChannels();
-            this.showToast(`Now playing: ${channel.channelName}`);
-            
-            // Auto-play
-            this.video.play().catch(e => {
-              console.log('Autoplay prevented:', e);
-              this.updateChannelStatus('Tap play to start');
-            });
-          });
-          
-          // Error handling - fallback to Shaka on fatal errors
-          this.hls.on(Hls.Events.ERROR, (event, data) => {
-            console.error('hls.js error:', data);
-            
-            if (data.fatal) {
-              switch (data.type) {
-                case Hls.ErrorTypes.NETWORK_ERROR:
-                  this.updateChannelStatus('Network error, retrying...');
-                  setTimeout(() => {
-                    if (this.playerType === 'hlsjs') {
-                      this.hls.startLoad();
-                    }
-                  }, 2000);
-                  break;
-                case Hls.ErrorTypes.MEDIA_ERROR:
-                  this.updateChannelStatus('Media error, recovering...');
-                  if (this.hls) {
-                    this.hls.recoverMediaError();
-                  }
-                  break;
-                default:
-                  // Fatal error - fallback to Shaka
-                  this.updateChannelStatus('hls.js failed, trying Shaka...');
-                  this.showToast('Switching to backup player...');
-                  this.tryPlayWithShaka(channel);
-                  break;
-              }
-            }
-          });
-          
-          this.video.addEventListener('playing', () => {
-            if (this.playerType === 'hlsjs') {
-              this.updateChannelStatus('Playing (hls.js)');
-              this.showLoading(false);
-            }
-          });
-          
-          this.video.addEventListener('waiting', () => {
-            if (this.playerType === 'hlsjs') {
-              this.updateChannelStatus('Buffering...');
-            }
-          });
-          
-          this.video.addEventListener('error', (e) => {
-            console.error('Video error with hls.js:', e);
-            if (this.playerType === 'hlsjs') {
-              this.tryPlayWithShaka(channel);
-            }
-          });
-          
-        } else {
-          // hls.js not supported, try Shaka
-          console.log('hls.js not supported, falling back to Shaka');
-          this.tryPlayWithShaka(channel);
-        }
-      }
-
-      tryPlayWithShaka(channel) {
-        this.playerType = 'shaka';
-        this.updateChannelStatus('Loading with Shaka...');
-        this.showLoading(true);
-        
-        const streamUrl = channel.manifestUrl;
-        
-        // Configure DRM if available
         try {
+          // Configure DRM if available
           let licenseKey = channel.licenseKey;
           if (licenseKey && !Array.isArray(licenseKey)) {
             licenseKey = JSON.parse(decodeURIComponent(licenseKey));
           }
-          
+
           if (licenseKey) {
-            const drmConfig = { drm: { clearKeys: {} } };
             licenseKey.forEach(pair => {
-              drmConfig.drm.clearKeys[pair.keyId] = pair.key;
+              this.player.configure({
+                drm: {
+                  clearKeys: {
+                    [pair.keyId]: pair.key
+                  }
+                }
+              });
             });
-            this.shakaPlayer.configure(drmConfig);
           }
-        } catch(e) {
-          console.warn('DRM config error:', e);
-        }
-        
-        // Load with Shaka
-        this.shakaPlayer.load(streamUrl).then(() => {
-          this.showLoading(false);
-          this.updateChannelStatus('Playing (Shaka)');
+
+          // Load and play the channel
+          this.player.load(channel.manifestUrl);
+
+          // Update UI
           this.updateChannelInfo(channel.channelName);
           this.updateFavoriteButton();
           this.updateChannelList();
           this.updateQuickChannels();
           this.showToast(`Now playing: ${channel.channelName}`);
-          
-          // Auto-play
-          this.video.play().catch(e => {
-            console.log('Autoplay prevented:', e);
-            this.updateChannelStatus('Tap play to start');
-          });
-        }).catch((error) => {
-          console.error('Shaka player error:', error);
-          this.showLoading(false);
-          this.updateChannelStatus('Failed to play channel');
-          this.showToast('Cannot play this channel');
-        });
-        
-        // Shaka events
-        this.shakaPlayer.addEventListener('error', (error) => {
-          console.error('Shaka error:', error);
-          this.updateChannelStatus('Playback error');
-        });
+
+        } catch (error) {
+          console.error('Error playing channel:', error);
+          this.showToast('Error playing channel');
+          this.updateChannelStatus('Error');
+        }
       }
 
       addToRecent(index) {
         // Remove if already in recent
         this.recentChannels = this.recentChannels.filter(i => i !== index);
+
         // Add to beginning
         this.recentChannels.unshift(index);
+
         // Keep only last 5
         if (this.recentChannels.length > 5) {
           this.recentChannels = this.recentChannels.slice(0, 5);
         }
+
         // Save to localStorage
         localStorage.setItem('iptv_recent', JSON.stringify(this.recentChannels));
+
         // Update UI
         this.updateRecentChannelsUI();
       }
 
       updateRecentChannelsUI() {
         const recentContainer = document.getElementById('recent-channels');
+
         if (this.recentChannels.length === 0) {
           recentContainer.style.display = 'none';
           return;
         }
+
         recentContainer.style.display = 'block';
         recentContainer.innerHTML = '<span style="margin-right: 10px; font-size: 11px; color: rgba(234,240,255,.55);">Recent:</span>';
+
         this.recentChannels.forEach(index => {
           const channel = this.channels[index];
           if (!channel) return;
+
           const recentEl = document.createElement('div');
           recentEl.className = 'recent-channel';
           recentEl.innerHTML = `
             <img src="${channel.tvgLogo}" alt="${channel.channelName}" style="width: 14px; height: 14px; border-radius: 6px; margin-right: 4px;" onerror="this.style.display='none'">
             <span>${channel.channelName}</span>
           `;
-          recentEl.addEventListener('click', () => this.playChannel(index));
+
+          recentEl.addEventListener('click', () => {
+            this.playChannel(index);
+          });
+
           recentContainer.appendChild(recentEl);
         });
       }
 
       toggleFavorite() {
         const index = this.currentChannelIndex;
+
         if (this.favorites.includes(index)) {
+          // Remove from favorites
           this.favorites = this.favorites.filter(i => i !== index);
           this.showToast('Removed from favorites');
         } else {
+          // Add to favorites
           this.favorites.push(index);
           this.showToast('Added to favorites');
         }
+
+        // Save to localStorage
         localStorage.setItem('iptv_favorites', JSON.stringify(this.favorites));
+
+        // Update categories
         this.categories.favorites = this.channels.filter((channel, idx) => this.favorites.includes(idx));
+
+        // Update UI
         this.updateFavoriteButton();
         this.updateQuickChannels();
         this.updateChannelList();
@@ -1280,6 +1180,7 @@
       updateFavoriteButton() {
         const favoriteBtn = document.getElementById('favorite-btn');
         const isFavorite = this.favorites.includes(this.currentChannelIndex);
+
         favoriteBtn.classList.toggle('active', isFavorite);
         favoriteBtn.innerHTML = isFavorite ? '<i class="fas fa-star"></i>' : '<i class="far fa-star"></i>';
       }
@@ -1300,10 +1201,13 @@
         const channels = this.categories[this.currentCategory] || this.channels;
         const currentChannel = this.channels[this.currentChannelIndex];
         const currentIndexInCategory = channels.findIndex(c => c.manifestUrl === currentChannel.manifestUrl);
+
         let nextIndexInCategory = (currentIndexInCategory + 1) % channels.length;
         if (nextIndexInCategory < 0) nextIndexInCategory = channels.length - 1;
+
         const nextChannel = channels[nextIndexInCategory];
         const nextIndex = this.channels.findIndex(c => c.manifestUrl === nextChannel.manifestUrl);
+
         this.playChannel(nextIndex);
       }
 
@@ -1311,10 +1215,13 @@
         const channels = this.categories[this.currentCategory] || this.channels;
         const currentChannel = this.channels[this.currentChannelIndex];
         const currentIndexInCategory = channels.findIndex(c => c.manifestUrl === currentChannel.manifestUrl);
+
         let prevIndexInCategory = (currentIndexInCategory - 1 + channels.length) % channels.length;
         if (prevIndexInCategory < 0) prevIndexInCategory = channels.length - 1;
+
         const prevChannel = channels[prevIndexInCategory];
         const prevIndex = this.channels.findIndex(c => c.manifestUrl === prevChannel.manifestUrl);
+
         this.playChannel(prevIndex);
       }
 
@@ -1322,6 +1229,7 @@
         this.isFullscreen = !this.isFullscreen;
         const appContainer = document.getElementById('app-container');
         const maximizeBtn = document.getElementById('maximize-btn');
+
         if (this.isFullscreen) {
           appContainer.classList.add('fullscreen');
           maximizeBtn.textContent = '⛷';
@@ -1334,39 +1242,40 @@
       showVolumeControl() {
         const volumeControl = document.getElementById('volume-control');
         volumeControl.style.display = 'flex';
+
         setTimeout(() => {
           volumeControl.style.display = 'none';
         }, 3000);
-      }
-
-      showLoading(show) {
-        document.getElementById('loading').style.display = show ? 'block' : 'none';
       }
 
       setupEventListeners() {
         // Channel navigation
         document.getElementById('prev-channel').addEventListener('click', () => this.prevChannel());
         document.getElementById('next-channel').addEventListener('click', () => this.nextChannel());
+
         // Channel list
         document.getElementById('channel-list-btn').addEventListener('click', () => this.showChannelList());
         document.getElementById('close-channels').addEventListener('click', () => this.hideChannelList());
+
         // Fullscreen
         document.getElementById('maximize-btn').addEventListener('click', () => this.toggleFullscreen());
+
         // Search
         document.getElementById('channel-search').addEventListener('input', (e) => {
           this.filterChannels(e.target.value);
         });
+
         // Favorite button
         document.getElementById('favorite-btn').addEventListener('click', () => this.toggleFavorite());
+
         // Settings
         document.getElementById('settings-btn').addEventListener('click', () => this.showSettings());
         document.getElementById('close-settings').addEventListener('click', () => this.hideSettings());
+
         // Volume control
         document.getElementById('volume-slider').addEventListener('input', (e) => {
-          this.video.volume = e.target.value / 100;
+          document.getElementById('video').volume = e.target.value / 100;
         });
-        // Video click to show volume
-        this.video.addEventListener('click', () => this.showVolumeControl());
       }
 
       showChannelList() {
@@ -1377,7 +1286,7 @@
       hideChannelList() {
         document.getElementById('channel-overlay').style.display = 'none';
         document.getElementById('channel-search').value = '';
-        this.filterChannels('');
+        this.filterChannels(''); // Reset filter
       }
 
       showSettings() {
@@ -1391,9 +1300,14 @@
       filterChannels(searchTerm) {
         const channelItems = document.querySelectorAll('.channel-item');
         const searchLower = searchTerm.toLowerCase();
+
         channelItems.forEach(item => {
           const channelName = item.querySelector('.channel-name').textContent.toLowerCase();
-          item.style.display = channelName.includes(searchLower) ? 'flex' : 'none';
+          if (channelName.includes(searchLower)) {
+            item.style.display = 'flex';
+          } else {
+            item.style.display = 'none';
+          }
         });
       }
 
@@ -1402,7 +1316,10 @@
         toast.className = 'toast';
         toast.textContent = message;
         document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 3000);
+
+        setTimeout(() => {
+          toast.remove();
+        }, 3000);
       }
     }
 
